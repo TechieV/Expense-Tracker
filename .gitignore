@@ -1,0 +1,54 @@
+# ==========================================
+# Dependency & Build Folders
+# ==========================================
+# This will catch all node_modules in root, client/, and server/
+node_modules/
+
+# Ignore build and distribution outputs
+dist/
+client/dist/
+build/
+
+# ==========================================
+# Environment & Secrets (NEVER UPLOAD THESE)
+# ==========================================
+.env
+.env.local
+.env.*.local
+server/.env
+
+# Note: We do NOT ignore .env.example so other devs 
+# know which variables they need to set up locally.
+
+# ==========================================
+# Python Caches & Compiled Files
+# ==========================================
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.pytest_cache/
+.virtualenv/
+venv/
+ENV/
+
+# ==========================================
+# OS & IDE Files (Recommended)
+# ==========================================
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.slnclient/dist/
+server/.env
+__pycache__/
+*.pyc
+.env.example
+.env
+/node_modules
+/client/node_modules
+/server/node_modules
+node_modules
