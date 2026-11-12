@@ -3,20 +3,69 @@ import { Transaction } from '../models.js';
 
 // Keyword rules: used as the fallback when the Python AI service is not running.
 const RULES = {
-  Food: ['swiggy', 'zomato', 'domino', 'mcdonald', 'kfc', 'starbucks', 'cafe', 'coffee', 'restaurant', 'grocery', 'groceries', 'bigbasket', 'blinkit', 'zepto', 'instamart', 'dmart', 'bakery', 'biryani', 'pizza', 'burger', 'dhaba', 'haldiram', 'chai', 'canteen', 'supermarket', 'vegetable', 'fruit'],
-  Travel: ['uber', 'ola ', 'olacabs', 'rapido', 'irctc', 'indigo', 'air india', 'makemytrip', 'redbus', 'metro', 'petrol', 'fuel', 'fastag', 'goibibo', 'cleartrip', 'toll', 'parking', 'railway', 'cab ', 'taxi', 'auto ', 'bus '],
-  Shopping: ['amazon', 'flipkart', 'myntra', 'ajio', 'nykaa', 'meesho', 'decathlon', 'croma', 'zara', 'h&m', 'lifestyle', 'shoppers', 'westside', 'pantaloons', 'ikea', 'lenskart', 'tata cliq', 'snapdeal', 'mall', 'store'],
-  Bills: ['electricity', 'bses', 'tata power', 'airtel', 'jio', 'vodafone', 'bsnl', 'broadband', 'water bill', 'gas', 'rent', 'insurance', 'lic ', 'premium', 'emi', 'loan', 'credit card', 'recharge', 'dth', 'maintenance', 'wifi', 'postpaid', 'prepaid'],
-  Entertainment: ['netflix', 'prime video', 'spotify', 'hotstar', 'disney', 'bookmyshow', 'pvr', 'inox', 'youtube', 'steam', 'playstation', 'game', 'gaming', 'movie', 'cinema', 'concert', 'zee5', 'sonyliv', 'gaana'],
-  Health: ['pharmacy', 'apollo', 'medplus', '1mg', 'pharmeasy', 'hospital', 'clinic', 'doctor', 'pathlab', 'lab ', 'gym', 'cult', 'netmeds', 'dental', 'medical', 'practo', 'diagnostic'],
-  Education: ['udemy', 'coursera', 'tuition', 'college', 'school', 'fees', 'fee ', 'byju', 'unacademy', 'books', 'stationery', 'exam', 'upgrad', 'course', 'library'],
+  Food: [
+    'swiggy', 'zomato', 'domino', 'mcdonald', 'kfc', 'starbucks', 'cafe', 'coffee',
+    'restaurant', 'grocery', 'groceries', 'big basket', 'bigbasket', 'blinkit', 'zepto',
+    'instamart', 'dmart', 'avenue supermarts', 'bakery', 'biryani', 'pizza', 'burger',
+    'dhaba', 'haldiram', 'chai', 'canteen', 'supermarket', 'vegetable', 'fruit',
+    'bishamber sahai', 'rajwani', 'nathu mal', 'suresh chand', 'sweets', 'confectionery',
+    'kitchen', 'dining', 'food', 'meals', 'snack'
+  ],
+  Travel: [
+    'uber', 'ola ', 'olacabs', 'rapido', 'irctc', 'indian railway', 'railway', 'train',
+    'dmrc', 'metro', 'delhi metro', 'indigo', 'air india', 'makemytrip', 'redbus',
+    'petrol', 'fuel', 'cng', 'indraprastha', 'indraprastha service', 'fastag', 'toll',
+    'parking', 'cab ', 'taxi', 'auto ', 'bus ', 'flight', 'airline', 'iocl', 'hpcl', 'bpcl', 'shell'
+  ],
+  Bills: [
+    'electricity', 'bses', 'tata power', 'airtel', 'jio', 'vodafone', 'bsnl',
+    'broadband', 'onebroadband', 'water bill', 'gas', 'rent', 'insurance', 'tata aig',
+    'lic ', 'premium', 'emi', 'loan', 'credit card', 'recharge', 'dth', 'maintenance',
+    'wifi', 'postpaid', 'prepaid', 'milesweb', 'program fee', 'super program', 'subscription'
+  ],
+  Shopping: [
+    'amazon', 'flipkart', 'myntra', 'ajio', 'nykaa', 'meesho', 'decathlon', 'croma',
+    'zara', 'h&m', 'lifestyle', 'shoppers', 'westside', 'pantaloons', 'ikea', 'lenskart',
+    'tata cliq', 'snapdeal', 'mall', 'store', 'rahul store', 'jaiswal store', 'paytm'
+  ],
+  Entertainment: [
+    'netflix', 'prime video', 'spotify', 'hotstar', 'disney', 'bookmyshow', 'pvr',
+    'inox', 'youtube', 'steam', 'playstation', 'game', 'gaming', 'movie', 'cinema', 'concert', 'zee5', 'sonyliv', 'gaana'
+  ],
+  Health: [
+    'pharmacy', 'apollo', 'medplus', '1mg', 'pharmeasy', 'hospital', 'clinic', 'doctor',
+    'pathlab', 'lab ', 'gym', 'cult', 'netmeds', 'dental', 'medical', 'practo', 'diagnostic'
+  ],
+  Education: [
+    'udemy', 'coursera', 'tuition', 'college', 'school', 'fees', 'fee ', 'byju',
+    'unacademy', 'books', 'stationery', 'exam', 'upgrad', 'course', 'library'
+  ],
+  Transfer: [
+    'sentimps', 'imps', 'neft', 'rtgs', 'fund transfer', 'self transfer', 'trf to',
+    'upi/mr vinay', 'upi/vinay', 'upi/mithilesh', 'upi/mr rohit', 'upi/sangeeta',
+    'upi/suresh', 'upi/drig', 'idibx', '/sent upi', '/upi upi', '/na upi', 'idib', 'upi/'
+  ],
 };
-const INCOME_SALARY = ['salary', 'payroll', 'stipend', 'wages'];
+
+const RULES_INCOME = {
+  Salary: ['salary', 'payroll', 'stipend', 'wages'],
+  Transfer: ['kotak811', 'upi/mr vinay', 'upi/vinay', 'upi/drig', 'recdimps', 'imps', 'neft', 'rtgs', 'trf from', 'idib', '/sent upi', '/na upi', 'upi/'],
+  Cashback: ['cashback', 'super cashback', 'reward', 'bonus', 'cash back'],
+  Investment: ['int.pd', 'interest', 'dividend'],
+};
 
 export function ruleCategory(description, type) {
   const d = ` ${String(description || '').toLowerCase()} `;
-  if (type === 'income') return INCOME_SALARY.some((k) => d.includes(k)) ? 'Salary' : 'Other Income';
-  for (const [cat, words] of Object.entries(RULES)) if (words.some((w) => d.includes(w))) return cat;
+  if (type === 'income') {
+    for (const [cat, words] of Object.entries(RULES_INCOME)) {
+      if (words.some((k) => d.includes(k))) return cat;
+    }
+    return 'Other Income';
+  }
+  for (const cat of ['Food', 'Travel', 'Bills', 'Entertainment', 'Health', 'Education', 'Shopping', 'Transfer']) {
+    const words = RULES[cat];
+    if (words.some((w) => d.includes(w))) return cat;
+  }
   return 'Other';
 }
 

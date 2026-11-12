@@ -3,10 +3,21 @@ import mongoose from 'mongoose';
 import { User, Category, StatementUpload, Transaction, Budget } from './models.js';
 
 const DEFAULT_CATEGORIES = [
-  ['Food', 'expense', '#f97316'], ['Travel', 'expense', '#0ea5e9'], ['Shopping', 'expense', '#a855f7'],
-  ['Bills', 'expense', '#ef4444'], ['Entertainment', 'expense', '#ec4899'], ['Health', 'expense', '#10b981'],
-  ['Education', 'expense', '#6366f1'], ['Other', 'expense', '#64748b'],
-  ['Salary', 'income', '#16a34a'], ['Other Income', 'income', '#14b8a6'],
+  ['Food', 'expense', '#f97316'],
+  ['Transfer', 'expense', '#3b82f6'],
+  ['Travel', 'expense', '#0ea5e9'],
+  ['Shopping', 'expense', '#a855f7'],
+  ['Bills', 'expense', '#ef4444'],
+  ['Entertainment', 'expense', '#ec4899'],
+  ['Health', 'expense', '#10b981'],
+  ['Education', 'expense', '#6366f1'],
+  ['Other', 'expense', '#64748b'],
+
+  ['Salary', 'income', '#16a34a'],
+  ['Transfer', 'income', '#3b82f6'],
+  ['Cashback', 'income', '#f59e0b'],
+  ['Investment', 'income', '#8b5cf6'],
+  ['Other Income', 'income', '#14b8a6'],
 ];
 
 export async function connectDb() {

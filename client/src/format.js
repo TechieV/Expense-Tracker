@@ -17,6 +17,7 @@ export const shiftMonthStr = (m, delta) => {
 
 export const CATEGORY_ICONS = {
   Food: '🍔',
+  Transfer: '🔄',
   Travel: '✈️',
   Transport: '🚗',
   Shopping: '🛍️',
@@ -28,6 +29,7 @@ export const CATEGORY_ICONS = {
   Education: '🎓',
   Salary: '💰',
   Investment: '📈',
+  Cashback: '🎁',
   Other: '💳',
 };
 
