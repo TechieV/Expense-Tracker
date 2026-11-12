@@ -7,6 +7,9 @@ export const User = model('User', new Schema({
   name: { type: String, required: true, trim: true, maxlength: 100 },
   email: { type: String, required: true, unique: true, lowercase: true, trim: true, maxlength: 150 },
   passwordHash: { type: String, required: true },
+  availableBalance: { type: Number, default: null },
+  balanceSource: { type: String, default: null },
+  balanceAsOf: { type: String, default: null },
 }, { timestamps: { createdAt: true, updatedAt: false } }));
 
 export const Category = model('Category', (() => {
@@ -27,6 +30,8 @@ export const StatementUpload = model('StatementUpload', new Schema({
   rowsFound: { type: Number, default: 0 },
   rowsImported: { type: Number, default: 0 },
   rowsDuplicate: { type: Number, default: 0 },
+  closingBalance: { type: Number, default: null },
+  openingBalance: { type: Number, default: null },
 }, { timestamps: { createdAt: 'uploadedAt', updatedAt: false } }));
 
 export const Transaction = model('Transaction', (() => {
@@ -37,9 +42,11 @@ export const Transaction = model('Transaction', (() => {
     date: { type: String, required: true, match: /^\d{4}-\d{2}-\d{2}$/ },   // 'YYYY-MM-DD' (sorts correctly as text)
     month: { type: String, required: true },                                  // 'YYYY-MM', makes monthly grouping simple
     amount: { type: Number, required: true, min: 0.01 },
+    balance: { type: Number, default: null },                                // Running bank balance from statement
     description: { type: String, default: '', maxlength: 255 },
     type: { type: String, enum: ['income', 'expense'], required: true },
     isAnomaly: { type: Boolean, default: false },
+    userDismissedAnomaly: { type: Boolean, default: false },
     // Every transaction has a key. Imported rows use a hash of their content, so re-uploading a statement is rejected
     // by the unique index below; manual entries get a random key and are never treated as duplicates.
     dedupeKey: { type: String, required: true },

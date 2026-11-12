@@ -15,12 +15,23 @@ export default function Upload() {
   const loadHistory = () => api('/statements').then(setHistory).catch(() => {});
   useEffect(() => { loadHistory(); }, []);
 
-  const pick = (f) => { if (!f) return; setResult(null); setError(''); setFile(f); };
+  const pick = (f) => {
+    if (!f) return;
+    setResult(null);
+    setError('');
+    setFile(f);
+    if (input.current) input.current.value = '';
+  };
 
   async function submit() {
     setBusy(true); setError(''); setResult(null);
     const form = new FormData(); form.append('file', file);
-    try { setResult(await api('/statements', { method: 'POST', form })); setFile(null); loadHistory(); }
+    try {
+      setResult(await api('/statements', { method: 'POST', form }));
+      setFile(null);
+      if (input.current) input.current.value = '';
+      loadHistory();
+    }
     catch (e) { setError(e.message); } finally { setBusy(false); }
   }
 
@@ -59,7 +70,7 @@ export default function Upload() {
               <tbody>{result.preview.map((t, i) => (<tr key={i}><td className="nowrap muted">{fmtDate(t.date)}</td><td>{t.description}</td><td><span className="badge">{t.category}</span></td><td className={`right nowrap amt ${t.type}`}>{t.type === 'income' ? '+' : '−'}{money2(t.amount)}</td></tr>))}</tbody>
             </table></div>
           )}
-          <p><Link to="/transactions">See all transactions →</Link></p>
+          <p><Link to="/transactions?all=true" className="btn small primary">See all transactions (including imported) →</Link></p>
         </section>
       )}
 

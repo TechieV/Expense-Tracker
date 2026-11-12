@@ -32,7 +32,15 @@ export function parseAmount(raw) {
 }
 
 const norm = (h) => String(h || '').toLowerCase().replace(/[^a-z]/g, '');
-const findCol = (headers, names) => headers.findIndex((h) => names.some((n) => norm(h).includes(n)));
+const findCol = (headers, names, exclude = []) =>
+  headers.findIndex((h, idx) =>
+    !exclude.includes(idx) &&
+    names.some((n) =>
+      n.length <= 2
+        ? norm(h) === n || new RegExp(`\\b${n}\\b`, 'i').test(h)
+        : norm(h).includes(n)
+    )
+  );
 
 function parseCsvStatement(buf) {
   let records;
@@ -44,10 +52,11 @@ function parseCsvStatement(buf) {
   const H = records[hi];
   const iDate = findCol(H, ['date']);
   const iDesc = findCol(H, ['description', 'narration', 'particulars', 'details', 'remarks']);
-  const iDebit = findCol(H, ['debit', 'withdrawal', 'withdraw', 'dr']);
-  const iCredit = findCol(H, ['credit', 'deposit', 'cr']);
-  const iAmount = findCol(H, ['amount']);
-  const iType = H.findIndex((h) => ['type', 'drcr', 'crdr'].includes(norm(h)));
+  const iDebit = findCol(H, ['debit', 'withdrawal', 'withdraw', 'dr'], [iDesc]);
+  const iCredit = findCol(H, ['credit', 'deposit', 'cr'], [iDesc]);
+  const iAmount = findCol(H, ['amount'], [iDesc, iDebit, iCredit]);
+  const iBalance = findCol(H, ['balance', 'bal', 'closingbalance'], [iDesc, iDebit, iCredit, iAmount]);
+  const iType = H.findIndex((h, idx) => idx !== iDesc && ['type', 'drcr', 'crdr'].includes(norm(h)));
   const out = []; let skipped = 0;
   for (const r of records.slice(hi + 1)) {
     const date = parseDate(r[iDate]);
@@ -55,40 +64,54 @@ function parseCsvStatement(buf) {
     let amount = null; let type = null;
     const debit = iDebit >= 0 ? parseAmount(r[iDebit]) : null;
     const credit = iCredit >= 0 ? parseAmount(r[iCredit]) : null;
+    const bal = iBalance >= 0 ? parseAmount(r[iBalance]) : null;
     if (debit && Math.abs(debit) > 0) { amount = Math.abs(debit); type = 'expense'; }
     else if (credit && Math.abs(credit) > 0) { amount = Math.abs(credit); type = 'income'; }
     else if (iAmount >= 0) {
       const a = parseAmount(r[iAmount]);
       if (a) {
         amount = Math.abs(a);
-        const t = iType >= 0 ? String(r[iType]).toLowerCase() : '';
-        if (/^(cr|credit|c)/.test(t)) type = 'income';
-        else if (/^(dr|debit|d)/.test(t)) type = 'expense';
+        const t = iType >= 0 ? String(r[iType]).toLowerCase().trim() : '';
+        if (/^(cr|credit|c|deposit|income)/.test(t)) type = 'income';
+        else if (/^(dr|debit|d|withdrawal|expense)/.test(t)) type = 'expense';
         else type = a < 0 ? 'expense' : 'income';
       }
     }
     if (!amount) { skipped++; continue; }
-    out.push({ date, amount: round2(amount), type, description: String(r[iDesc] || '').replace(/\s+/g, ' ').trim().slice(0, 250) });
+    out.push({
+      date,
+      amount: round2(amount),
+      type,
+      balance: bal !== null ? round2(bal) : null,
+      description: String(r[iDesc] || '').replace(/\s+/g, ' ').trim().slice(0, 250),
+    });
   }
-  return { rows: out, skipped };
+  const rowsWithBal = out.filter((r) => r.balance !== null);
+  const closingBalance = rowsWithBal.length > 0 ? rowsWithBal[rowsWithBal.length - 1].balance : null;
+  return { rows: out, skipped, closingBalance };
 }
 
-const NUM = /-?\d{1,3}(?:,\d{2,3})*\.\d{2}|-?\d+\.\d{2}/g;
-const DATE_START = /^(\d{1,2}[/\-. ]\d{1,2}[/\-. ]\d{2,4}|\d{1,2}[-/ ][A-Za-z]{3}[a-z]*[-/ ,]*\d{2,4}|\d{4}-\d{2}-\d{2})\s+/;
+const NUM = /-?\b\d{1,3}(?:,\d{2,3})*(?:\.\d{1,2})?\b|-?\b\d+(?:\.\d{1,2})?\b/g;
+const DATE_PATTERN = /(\d{4}[-/]\d{1,2}[-/]\d{1,2}|\d{1,2}[/\-. ]\d{1,2}[/\-. ]\d{2,4}|\d{1,2}[-/ ][A-Za-z]{3}[a-z]*[-/ ,]*\d{2,4})/;
 
 // Rebuilds table rows from the PDF: items on the same line are joined left-to-right with a gap between columns
 function renderPage(pageData) {
   return pageData.getTextContent({ normalizeWhitespace: true }).then((tc) => {
-    const items = tc.items.filter((i) => i.str.trim()).map((i) => ({ x: i.transform[4], y: i.transform[5], s: i.str.trim() }));
+    const items = (tc.items || [])
+      .filter((i) => i && typeof i.str === 'string' && i.str.trim() && Array.isArray(i.transform) && i.transform.length >= 6)
+      .map((i) => ({ x: i.transform[4], y: i.transform[5], s: i.str.trim() }));
     items.sort((a, b) => b.y - a.y || a.x - b.x);
     const rows = [];
     for (const it of items) {
       const row = rows[rows.length - 1];
-      if (row && Math.abs(row.y - it.y) <= 3) row.items.push(it); else rows.push({ y: it.y, items: [it] });
+      if (row && Math.abs(row.y - it.y) <= 4.5) row.items.push(it); else rows.push({ y: it.y, items: [it] });
     }
     return rows.map((r) => r.items.sort((a, b) => a.x - b.x).map((i) => i.s).join('   ')).join('\n') + '\n';
   });
 }
+
+const DISCLAIMER_RE = /page\s+\d+|statement generated|account summary|particulars|opening balance|closing balance|end of statement|signature|stamp|assistance|contact us|remember|customer care|helpline|branch|never share|sensitive information|safe banking|kotak mahindra|bank ltd|important information|inaccurate|cin:|pin,\s*cvv|tax invoice|goods and services|gst|schedule of features|commonly used|inoperative account|account no\b|nominee|dear customer/i;
+const HEADER_METADATA_RE = /(account type|nominee registered|savings account transactions|crn\s*x+|ifsc code|micr\s*\d+|account status|currency indian rupee)/i;
 
 async function parsePdfStatement(buf) {
   let text;
@@ -98,37 +121,69 @@ async function parsePdfStatement(buf) {
   if (!text || text.trim().length < 30) throw new HttpError(422, 'No text found in this PDF. It may be a scanned statement (OCR is not enabled yet).');
   const lines = text.split(/\r?\n/).map((l) => l.replace(/\s+/g, ' ').trim()).filter(Boolean);
   const out = []; let skipped = 0; let prevBalance = null; let last = null;
+  let tableStarted = false;
+
   for (const line of lines) {
-    const dm = line.match(DATE_START);
-    if (!dm) {
+    if (!tableStarted) {
+      if (/opening balance|#\s*date|date\s+description|transactions/i.test(line)) {
+        tableStarted = true;
+      }
+      continue;
+    }
+
+    if (HEADER_METADATA_RE.test(line)) continue;
+    if (/closing balance|opening balance|end of statement|statement generated|page\s+\d+\s+of/i.test(line)) {
+      last = null;
+      continue;
+    }
+
+    const dm = line.match(DATE_PATTERN);
+    const pos = dm ? line.indexOf(dm[0]) : -1;
+    const isHeader = pos >= 0 && /page|statement|period|balance|account|opening|closing|total/i.test(line.slice(0, pos));
+    if (!dm || pos > 20 || isHeader) {
       // continuation of the previous narration (wrapped line without amounts)
-      if (last && !line.match(NUM) && line.length < 80 && !/page|statement|balance|opening|closing|total/i.test(line)) last.description = `${last.description} ${line}`.trim().slice(0, 250);
+      if (last && !line.match(NUM) && line.length < 80 && !DISCLAIMER_RE.test(line)) {
+        last.description = `${last.description} ${line}`.trim().slice(0, 250);
+      }
       continue;
     }
     const date = parseDate(dm[1]);
-    const rest = line.slice(dm[0].length);
-    const nums = rest.match(NUM) || [];
-    if (!date || nums.length < 1) { skipped++; last = null; continue; }
+    const afterDate = line.slice(pos + dm[0].length);
+    const rawNums = (afterDate.match(NUM) || []).map((n) => parseAmount(n)).filter((n) => n !== null && Math.abs(n) > 0);
+    if (!date || rawNums.length === 0) { skipped++; last = null; continue; }
     let amount; let balance = null;
-    if (nums.length >= 2) { balance = parseAmount(nums[nums.length - 1]); amount = Math.abs(parseAmount(nums[nums.length - 2])); }
-    else amount = Math.abs(parseAmount(nums[0]));
+    if (rawNums.length >= 2) {
+      balance = rawNums[rawNums.length - 1];
+      amount = Math.abs(rawNums[rawNums.length - 2]);
+    } else {
+      amount = Math.abs(rawNums[0]);
+    }
     if (!amount) { skipped++; last = null; continue; }
     let type = null;
     if (balance !== null && prevBalance !== null) {
-      if (Math.abs(prevBalance + amount - balance) < 0.02) type = 'income';
-      else if (Math.abs(prevBalance - amount - balance) < 0.02) type = 'expense';
+      if (Math.abs(prevBalance + amount - balance) < 0.05) type = 'income';
+      else if (Math.abs(prevBalance - amount - balance) < 0.05) type = 'expense';
     }
-    const lower = rest.toLowerCase();
+    const lower = afterDate.toLowerCase();
     if (!type) {
-      if (/\bcr\b|\bcredit\b|salary|deposit|refund|interest|cashback|received/.test(lower)) type = 'income';
+      if (/\b(cr|credit|salary|deposit|refund|interest|cashback|received)\b/i.test(lower)) type = 'income';
+      else if (/\b(dr|debit|withdrawal|withdraw)\b/i.test(lower)) type = 'expense';
       else type = 'expense';
     }
     if (balance !== null) prevBalance = balance;
-    const description = rest.replace(NUM, ' ').replace(/\b(cr|dr)\b/gi, ' ').replace(/\s+/g, ' ').trim().slice(0, 250);
-    last = { date, amount: round2(amount), type, description };
+    const description = afterDate.replace(NUM, ' ').replace(/\b(cr|dr)\b/gi, ' ').replace(/\s+/g, ' ').trim().slice(0, 250);
+    last = {
+      date,
+      amount: round2(amount),
+      type,
+      balance: balance !== null ? round2(balance) : null,
+      description: description || 'Bank Transaction',
+    };
     out.push(last);
   }
-  return { rows: out, skipped };
+  const rowsWithBal = out.filter((r) => r.balance !== null);
+  const closingBalance = rowsWithBal.length > 0 ? rowsWithBal[rowsWithBal.length - 1].balance : null;
+  return { rows: out, skipped, closingBalance };
 }
 
 export async function parseStatement(buf, ext) {

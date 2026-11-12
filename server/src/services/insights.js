@@ -29,7 +29,8 @@ export async function buildInsights(userId, month) {
 
   for (const b of await budgetStatus(userId, month, [from, to])) {
     const pct = (b.spent / b.limitAmount) * 100;
-    if (pct >= 100) out.push({ kind: 'budget-over', severity: 'bad', message: `You have exceeded your ${b.category} budget by ${inr(b.spent - b.limitAmount)} (${inr(b.spent)} of ${inr(b.limitAmount)}).` });
+    if (pct > 100) out.push({ kind: 'budget-over', severity: 'bad', message: `You have exceeded your ${b.category} budget by ${inr(b.spent - b.limitAmount)} (${inr(b.spent)} of ${inr(b.limitAmount)}).` });
+    else if (pct === 100) out.push({ kind: 'budget-over', severity: 'bad', message: `You have reached 100% of your ${b.category} budget (${inr(b.spent)} of ${inr(b.limitAmount)}).` });
     else if (pct >= 80) out.push({ kind: 'budget-near', severity: 'warn', message: `${b.category} budget is ${Math.round(pct)}% used (${inr(b.spent)} of ${inr(b.limitAmount)}).` });
   }
 

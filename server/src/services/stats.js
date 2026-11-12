@@ -1,6 +1,6 @@
 import { Transaction, Budget } from '../models.js';
 import { loadCategories } from '../db.js';
-import { oid, round2 } from '../util.js';
+import { oid, round2, monthRange } from '../util.js';
 
 /** Total spent per category between two dates. Returns Map(categoryId -> total). */
 export async function sumsByCategory(userId, from, to, type = 'expense') {
@@ -35,4 +35,71 @@ export async function budgetStatus(userId, month, range) {
     return { id: String(b._id), categoryId: String(b.categoryId), category: cat?.name || 'Unknown', color: cat?.color || '#64748b',
       limitAmount: b.limitAmount, spent: round2(s), percent: Math.round(pct), status: pct >= 100 ? 'over' : pct >= 80 ? 'warning' : 'ok' };
   }).sort((a, b) => a.category.localeCompare(b.category));
+}
+
+/**
+ * Resolves the true Available Balance for a user:
+ * 1. Finds the latest transaction with a verified bank statement balance (date, balance).
+ * 2. Adds income and subtracts expenses that occurred strictly after that verified transaction date.
+ * 3. If no statement balance exists, falls back to total income minus total expense.
+ */
+export async function getAvailableBalance(userId, asOfMonth = null) {
+  const dateFilter = { userId: oid(userId), balance: { $ne: null } };
+  if (asOfMonth) {
+    const nextMonthStart = monthRange(asOfMonth)[1];
+    dateFilter.date = { $lt: nextMonthStart };
+  }
+  const latestWithBal = await Transaction.findOne(dateFilter).sort({ date: -1, _id: -1 }).lean();
+
+  if (latestWithBal && latestWithBal.balance != null) {
+    const subsequentFilter = {
+      userId: oid(userId),
+      $or: [
+        { date: { $gt: latestWithBal.date } },
+        { date: latestWithBal.date, _id: { $gt: latestWithBal._id } },
+      ],
+    };
+    if (asOfMonth) {
+      const nextMonthStart = monthRange(asOfMonth)[1];
+      subsequentFilter.date = { $gt: latestWithBal.date, $lt: nextMonthStart };
+    }
+    const [subsequent] = await Transaction.aggregate([
+      { $match: subsequentFilter },
+      {
+        $group: {
+          _id: null,
+          inc: { $sum: { $cond: [{ $eq: ['$type', 'income'] }, '$amount', 0] } },
+          exp: { $sum: { $cond: [{ $eq: ['$type', 'expense'] }, '$amount', 0] } },
+        },
+      },
+    ]);
+    const inc = subsequent?.inc || 0;
+    const exp = subsequent?.exp || 0;
+    return {
+      balance: round2(latestWithBal.balance + inc - exp),
+      source: 'statement',
+      asOfDate: latestWithBal.date,
+      statementBalance: latestWithBal.balance,
+    };
+  }
+
+  // Fallback to all.income - all.expense
+  const [all] = await Transaction.aggregate([
+    { $match: { userId: oid(userId) } },
+    {
+      $group: {
+        _id: null,
+        inc: { $sum: { $cond: [{ $eq: ['$type', 'income'] }, '$amount', 0] } },
+        exp: { $sum: { $cond: [{ $eq: ['$type', 'expense'] }, '$amount', 0] } },
+      },
+    },
+  ]);
+  const inc = all?.inc || 0;
+  const exp = all?.exp || 0;
+  return {
+    balance: round2(inc - exp),
+    source: 'calculated',
+    asOfDate: null,
+    statementBalance: null,
+  };
 }
